@@ -28,11 +28,6 @@ import androidx.lifecycle.Observer;
 import androidx.test.espresso.IdlingResource;
 import androidx.test.espresso.idling.CountingIdlingResource;
 
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationCallback;
-import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationResult;
-import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -47,6 +42,11 @@ import org.owntracks.android.R;
 import org.owntracks.android.data.repos.LocationRepo;
 import org.owntracks.android.databinding.UiMapBinding;
 import org.owntracks.android.geocoding.GeocoderProvider;
+import org.owntracks.android.location.LocationCallback;
+import org.owntracks.android.location.LocationProviderClient;
+import org.owntracks.android.location.LocationRequest;
+import org.owntracks.android.location.LocationResult;
+import org.owntracks.android.location.LocationServices;
 import org.owntracks.android.model.FusedContact;
 import org.owntracks.android.services.BackgroundService;
 import org.owntracks.android.services.LocationProcessor;
@@ -80,7 +80,7 @@ public class MapActivity extends BaseActivity<UiMapBinding, MapMvvm.ViewModel<Ma
     private boolean isMapReady = false;
     private Menu mMenu;
 
-    private FusedLocationProviderClient fusedLocationClient;
+    private LocationProviderClient locationClient;
     LocationCallback locationRepoUpdaterCallback = new LocationCallback() {
         @Override
         public void onLocationResult(LocationResult locationResult) {
@@ -172,7 +172,7 @@ public class MapActivity extends BaseActivity<UiMapBinding, MapMvvm.ViewModel<Ma
         } else {
             startService((new Intent(this, BackgroundService.class)));
         }
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        locationClient = LocationServices.Companion.getLocationProviderClient(this);
     }
 
     private void checkAndRequestLocationPermissions() {
@@ -279,14 +279,11 @@ public class MapActivity extends BaseActivity<UiMapBinding, MapMvvm.ViewModel<Ma
                 ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             checkAndRequestLocationPermissions();
         }
-        fusedLocationClient.requestLocationUpdates(
+        locationClient.requestLocationUpdates(
                 new LocationRequest()
                         .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
                         .setInterval(TimeUnit.SECONDS.toMillis(5)),
-                locationRepoUpdaterCallback,
-                null
-        ).addOnCompleteListener(task ->
-                Timber.i("Requested foreground location updates. isSuccessful: %s isCancelled: %s", task.isSuccessful(), task.isCanceled())
+                locationRepoUpdaterCallback
         );
         updateMonitoringModeMenu();
     }
@@ -299,9 +296,7 @@ public class MapActivity extends BaseActivity<UiMapBinding, MapMvvm.ViewModel<Ma
         } catch (Exception e) {
             isMapReady = false;
         }
-        fusedLocationClient.removeLocationUpdates(locationRepoUpdaterCallback).addOnCompleteListener(task ->
-                Timber.i("Removed foreground location updates. isSuccessful: %s isCancelled: %s", task.isSuccessful(), task.isCanceled())
-        );
+        locationClient.removeLocationUpdates(locationRepoUpdaterCallback);
     }
 
     private void handleIntentExtras(Intent intent) {
